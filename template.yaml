@@ -1,0 +1,77 @@
+# BEGIN: 6c9d3f5fjw4e
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Resources:
+  MyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: 'arn:aws:s3:::neel-sjsu/*'
+  MyEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaInvoke
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt MyFunction.Arn
+  MyLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: ./build/
+      CompatibleRuntimes:
+        - python3.8
+    Metadata:
+      BuildMethod: makefile
+  MyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: MyLambdaFunction
+      CodeUri: ./scripts/
+      Handler: lambda_handler.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt MyRole.Arn
+      Layers:
+        - !Ref MyLayer
+  MyScheduledEvent:
+      Type: AWS::Events::Rule
+      Properties:
+        Description: 'Daily event at 9am'
+        ScheduleExpression: 'cron(0 9 * * ? *)'
+        RoleArn: !GetAtt MyEventRole.Arn
+        State: 'DISABLED'
+        Targets:
+          - Arn: !GetAtt MyFunction.Arn
+            Id: 'TargetFunctionV1'
+            Input: '{}'
+            # we use a dummy constant input here
+            
+
+      
+      
